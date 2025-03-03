@@ -1,0 +1,329 @@
+#Command List
+> is used to redirect the log or file to diff location or Directory
+
+ADMIN RIGHTS_Username: .\Support
+
+
+Podman 
+uptime
+Pd run -dt( detached mode with -t adds a pseudo-tty to run arbitary cmd in an interactive shell) --name Namegiven -p 8080:8080/tcp PATH
+pd run -d --name namegiven -p 8080:80 imagename  (8080 localhost exposed to 80 on container)
+pd exec -it name bash (inside bash shell)
+Pd logs -l(latest container) or -f containerID (for specific container)
+pd events --since 1h
+pd login path -u username
+curl http://localhost:8080/actuator/health  --to check the health status.
+curl localhost:8080
+pd image list or images 
+pd search name | head -5 (Ist 5 lines)   | Pipe this
+pd search name | grep -i official
+pd inspect imagename:tag | less
+pd --help | less  or image --help or image build --help 
+pd ps -a (runnung and stop container)
+skopeo inspect docker://registery.fedoraproject.org/fedora | less --- to see registry from fedora project
+curl https://registry.fedoraproject.org/v2/fedora/tags/list | python -m json.tool (to see the list of fedora images and use python to format them.) 
+ pd diff imagename -- to see difference made to file 
+ pd exec -it imagename bash
+ echo "text" > /usr/share/nginx/html/index.html
+curl http://localhost:8080 -- to see the html file text
+-P --- just to asign random port from host 
+ADDING VOLUME TO CONTRAINER
+mkdir db_dir1 (contianer Directory and mount to uservolume)
+podman run -d --name mysql -v ~/db_dir1:/user/wrzaad/desktop -e MYSQL_ROOT_PASSWORD=pass -p 3306:3306 mysql
+mysql -h localhost 33062 -u root -p(passwd) --protocol=tcp -e "show databases;" --- to check if db is running on same port or not i.e 33061 - container port
+to enter db from podman 
+pd exec -it mysql bash (to enter)
+mysql -p(passwd)
+show databases;    to see if it runnung properly.
+
+SAVE AND LOAD IMAGES
+pd save --quiet -o name.tar filename
+pd load -i namne.tar
+
+START A CONTRAINER USING NON-PRIVILAGE USER USING SYSTEMD
+container persistent using SYSTEMD
+make Directory distor using SYSTEMD service file in 
+mkdir -p ~/.config/systemd/user  --- making in clouduser home Directory 
+cd .config/systemd/user
+pd generate systemd --files --new --name nginx-1 (new service nginx-1 and it will create a service container-nginx-1.service)
+less container-nginx-1.service (to look up if the service is available)
+systemctl --user daemon-reload  (--user flag bcy running as non PRIVILAGEuser)
+systemctl -user enable --now container-nginx-1 (it will create symlink )
+now the service is running
+enable linger for user
+loginctl show-user cloud_user | grep -i linger (show the status of linger)
+loginctl enable-linger 
+reboot the system 
+sudo reboot
+to check the status of service 
+systemctl --user status container-nginx-1
+curl localhost:8080 (to check if web server in container is running)
+
+CHANGE/UPDATE THE deployment secret config in a POD instead of deleting it 
+oc get all --- check the faulty POD if its in CRASHLOOP sequence
+oc logs podname | less 
+oc set env deployment deploymentname MYSQL_ROOT_PASSWORD=Newpass
+
+
+
+COPY A FILE FROM AND TO CONTAINER
+
+pd cp /source/path/file containername:/destination/path 
+pd cp containername:/source/path /destination/path
+
+SYN Directory in OPENSHIFT To and From Pods --- rsyn cmd 
+oc rsync /source/path/dirname podname:/destination/path/
+oc rsync podname:/source/path/ /destination/path/   (if its in current Directory then ./foldername)
+
+copy in diff namespace in openshift
+oc cp namespace/podname:/source/path/file /destination/path
+oc cp /source/path/file namespace(wrzaad)/pod:/destination/path
+
+
+----------------END-----------
+
+
+OPENSHIFT
+
+OC project
+oc status 
+oc describe pod podname | less or describe service servicename
+oc describe is/imagename
+oc describe istag/imagestreamname:tagname --- get all info about streamimage tag 
+oc get all | less
+oc get podname -o yaml | less
+oc create -f filename(routes.yaml) create route in the app- 
+oc get routes
+oc edit route/filename
+oc get pods 
+oc exec podname -- uptime
+oc delete route/filename
+download from the Git 
+curl -L gitpath -o newname
+curl -L gitpath | bash
+oc login -u developer url:port
+ OC CREATE AND EXEC can both be used to create Route 
+
+To create a new project
+oc new-project name --display-name="long name"
+
+IMAGE CREATION PODMAN/DOCKER 
+
+Build S2I from podman/docker 
+podman build -t builder-image-name           docker build -t name 
+GENERATE SCRIPTS AND TOOLS
+s2i create _imagename_ _destinationdirecrtoy_
+VERIFY IMAGE 
+podman/docker run image-name 
+BUILD THE IMAGE USING S2I
+s2i build file://path-to-app _builder-image-name_ _Output-app-name_
+RUN THE CONTAINER WITH PODMAN/DOCKER
+podman/docker run image-name ---updating new tag
+
+Tagging an IMAGE 
+
+oc tag imagename:tagname1 imagename:tagname2 (for adding more than one tag)
+oc tag REPOSITORY/IMAGE IMAGENAME:TAGNAME --scheduled(optional --schd to tell OPENSHIFT preodically update this image tag  )------ adding tag for external Image,
+oc tag imagename:tag imagename:newtagname
+oc tag source destination  ------ oc tag ruby:2.0 ruby:stable-2.0
+oc tag -d imagename or oc delete istag/imagename
+
+ALLOWING PODS to REFERENCE IMAGE IN ANOTHER PROJECT 
+ALLOW POD IN PROJECT-A TO REFERENCE IMAGE IN PROJECT-Build
+oc policy add-role-to-user \ system:image-puller system:service-accounts:PROJECT-A:default\ --namespace=PROJECT-B
+
+TO ALLOW ANY SERVICE ACCESS IN PROJECT-A , USE THE GROUP
+oc policy add-role-to-group \ system:image-puller system:service-accounts:PROJECT-A \ --namespace=PROJECT-B 
+
+ALLOWING REFERENCE FROM OTHER SECURE REGISTERY
+ALREADY HAVE dockercfg FILE FROM SECURED REGISTRY 
+oc create secret generic PULL-SECRET-NAME \ --from-file=.dockercfg=PATH-TO/.DOCKERCFG --type=kubernetes.io/dockercfg
+IF HAVE $HOME/.DOCKER/CONFIG.JSON FILE
+oc create secret generic PULL-SECRET-NAME \ --from-file=.dockerconfig.json=path7to7:docker7config:json \ --type=kubernetes.io/dockerconfigjson 
+IF DONT HAVE A DOCKER CREDS FILE FOR SECURED REGISTRY
+oc create secret PULL-SECRET-NAME \ --docker-server=REGISTRY-SERVER \ --docker-username=USERNAME \ --docker-password=PASSWD \ --docker-email=EMAIL
+ADD A SECRET TO SERVICE ACCOUNT 
+oc secret link SERVICE-ACCOUNTNAME PULL-SECFRET-NAME \ --for=pull
+PULLING FROM PRIVATE REGISTRY WITH DELEGATED AUTHENTICATION
+CREATE A SECRET FOR DELEGATED AUTH SERVER oc create secret docker-registry \ --docker-server=sso.redhat.com \ --docker-username=USERNAME \ --docker-password=PASSWD \ --docker-email=EMAIL \ redhat-connect-sso
+CREATE A SECFRETFRPM THE PRIVATE REGISTERY oc create docker-registry \ --docker-server=PRIVATERESG.COM \ --docker-user=USERNAME \ --docker-password=PASSWD \ --docker-email=EMAIL \ private-registry
+UPDATING THE GLOBAL CLUSTER PULL SECRET
+oc set data secret/pull-secret -n openshit-config-namespace / --from-file=.dockerconfigjson=PULL-SECRET-LOCATION  ----- have a new or modified pull secret file to upload and only acces to cluster with USER ADMIN ROLE
+
+3 WAYS TO CREATE a NEW APPLICATION OPENSHIFT
+
+1. From Docker image 
+oc new-app --docker-image=myregistry.com/mycompany/myapp(registry address)
+2. from source code stored in GIT
+oc new-app GITURL
+3. Using source to image (S2I) stored in Git 
+oc new-app php~url (in this case php)
+oc new-app --as-deployment-config -i php GitURLofPHPimage       (-i or ~ both are valid )   -------using source to image and creating deploymentconfig.
+oc new-app --name=namegiventoservice -i php giturl --context-dir=dirpath -l app="namegive"(l=lable all application to specific name tag )--- using S2I using context dir on Repo
+oc new-app --as-deployment-config .   (using S2I from GIT REPO in current Directory)
+
+after creating project and  deploy services 
+oc logs -f buildconfig/appname
+after create route for service
+oc status -- check status of service
+create Routes 
+oc exec service servicename 
+checks status of Route 
+oc get routes/servicename --- check status of Routes
+
+curl -s Host-name-provided-by-route ------ to check the file and welcome msg in case of Html file
+
+
+oc new-app mysql -e MYSQL_ROOT_PASSWORD=Pass23 -e MYSQL_USER=NAME -e MYSQL_PASSWORD=DIFF PASS -e MYSQL_DATABASE=TESTDB(GIVE A NAME)  --name =appname(any)    --- oc new-app image | stream | template | path | URL 
+oc expose service servicename (oc expose service/mysql) -- expose to outside world
+oc port-forward nameofpod 3306:3306 (host port no : pod port no.) (to test connectivity to application e.g mysql)
+ To connect a applicaton e.g MySQL
+
+ mysql -uguru(user) -p(passwd) --protocol tcp -h localhost (login in into db)
+show databases;
+oc rsh podname (login into shell in pod)
+ps -ef | grep (to see if mysql or any app is running)  
+
+CICD using Jenkins n OPENSHIFT
+
+1. create projects for CICD, DEV , STAGE (if everthing works then we use STAGE)
+oc new-project cicd --display-name="CI/CD"
+oc new-project dev --display-name="Tasks - DEV"
+oc new-project stage --display-name="Task - STAGE"
+
+allow jenkins containers access OC API, so to figure out what images running. 
+oc policy add-role-to-user edit system:serviceaccount:cicd:default -n cicd (service account with defalut user)
+oc policy add-role-to-user edit system:serviceaccount:cicd:default -n dev
+oc policy add-role-to-user edit system:serviceaccount:cicd:default -n stage 
+
+oc process -f GITURL.yaml | oc create -f - (to create )
+
+
+ Templates on OC
+
+oc get template templatename  -n openshift -o yaml(for output in yaml/json format openshift is namespace in this case. can be diff in othercase)
+to view template parameter
+oc describe template templatename -n openshift
+or oc process --parameters template -n openshift
+Publish a template
+oc create -f templatefile.yaml  --- template create in default project
+oc create -f templatefile.yaml -n openshift ----  -n to save the template into different projct
+Processing a Template -- OC Process CMD 
+oc process -f templatename  --- display to standard output#
+oc process -o yaml -f filename --- display to standard output in yaml format
+oc process templatename ---- using a template from current project or diff openshift project
+oc process -f mysql.yaml -p MYSQL_USER=username > my_processed_file.yaml
+Process and create in single step with PIPE
+
+oc process -f mysql.yaml -p MYSQL_USER=username | oc create -f -
+Create template from Existing Objetcs -- oc get -o yaml --export all > YAML-FILE-NAME
+Create an app from the processed template w/o saving a file 
+oc process -f mysql.yaml -p MYSQL_USER=username | oc create -f -
+Create an app in your proje+using default openshift template
+start to check defalut template oc get template -n openshift(any namespace can be wrzaad) | less --- to see all template on OPENSHIFT
+1.oc get template templatename -o yaml -n openshift > my_template.yaml(this to save template in any file e.g my_template.yaml) --- -n openshift can be any namespace e.g wrzaad
+then use 2.- -- oc process-f mysql.yaml -p MYSQL_USER=username -p MYSQL_PASSWORD=passwd -p MYSQL_DATABASE=(databasename on project) | oc create -f -
+Process the template and create app
+oc process -f my_template.yaml -p PARAMETER_NAME=value | oc create -f -
+or using the OC-NEW app command
+oc new-app --template=my_template.yaml -p Parameter_NAME=value
+CREAT A PARAMETER
+vi PARAMETER.env   --- write parameter like database_name, database_user database_password
+create a PROJECT --- oc new-project porjectname   
+UPLOAD THE TEMPLATE 
+oc process TEMPLATENAME -n namespace --param-file=parameterfilename | oc create -f -
+EDIT A TEMPLATE
+oc edit template TEMPLATENAME -n NAMESPACE (use -n option if template is not in current namespace.)
+EDIT or VIEW PARAMETER IN TEMPLATE
+oc process --parameters -n namespace templatename (to view list of all parameter of a template in given namespace else dnt use -n for current namespace.)
+CREATA A TEMPLATE FROM SCRATCH USING OBJECTS FROM CURRENT PROJECT 
+oc get -o yaml --export all --selector app=APPNAME > FILENAME.yaml
+after creating process and create template from file 
+oc process -f filename.yaml | oc create -f -
+
+LOGS
+oc get all --- show all resources available
+oc get all -l selector=value (list of resources with specific selector)
+oc describe bc resourcename  --- bc=buildconfig
+oc logs resourcename
+oc logs -f resourcename (specific from current resource)
+oc logs podresource -c containername (from specific container in a pod with multiple container)
+
+Connect to a POD and Port forwarding
+oc rsh podname
+oc rsh -c containername podname
+oc rsh podname command ------ if donot want run from bash - just type the command along with podname , oc rsh podname ps -ef (PS -EF shows list of process running in container)
+altenrnate way to run command in POD ----- oc exec podname -- command 
+oc port-forwad podname local_port:Remote_port --- forwading a port from POD to localhost.
+
+
+
+ENV VARIABLES CMD 
+oc set env --list  resourcetype(e.g pod)/resourcename(podname) --- to get list of all env variable with specific resource
+oc set env resourcetype/resourcename VARIABLE=value ---- set variable like MYSQL_PASSWORD, then later can be set in deployment
+
+ MANUALLY ADD SOURCE CLONE SECRET (BUILDCONFIG) --setting the source clone secret on Existing build config using oc cmd
+ oc set build-secret bc/buildconfigname sourcesecretname 
+
+
+Sh 
+#make a file run auto
+vi/touch/nano name.sh
+chmod +x name.sh
+./name.sh 
+
+INSTALL A CODE READY CONTAINER (CRC) AND LOGIN TO CLUSTER
+DOWNLOAD A TAR FILE
+wget url-link 
+tar xvf filename 
+echo $PATH --- list of all Directories in ur path
+cp tarfilename/tarfile-path/ /usr/local/bin/  --- or to any destinationpath
+then .. 
+crc setup
+crc start  (need image pull secret) to install ur CLUSTER
+SETUP CLIENT TOOLS
+crc oc-env 
+eval $(crc oc_new)
+crc console --credentials 
+copy the oc login command and enter to login to CLUSTER
+
+
+
+MIGRATING APP from 3-4 OCS
+
+check for app on oc3 and check for MTC installed on oc4 
+oc get pods -n nameofapp
+oc get routes -n nameofapp --- to get the url of app
+oc get route migration -n openshift-migration -o jsonpath = '{.spec.host}{"\n"}'
+or
+oc get -n openshift-migration route/migration -o go-template='https://{{ .spec.host }}'
+the on web console add OC3 cluster to MTC web console by click on ADD CLUSTER
+add URL of API Server 
+oc whoami --show-server  -----use on OC3 CLI
+get the URL w/o port no. and paste on URL 
+then to get token 
+oc sa get-token migration-operator -n openshift-migration   ----- service account token 
+Registry for oc3 cluster to pull from same registry
+oc get routes -n defalut docker-registry 
+now add migration plan clicking on next 
+name it --- select a replication REPOSITORY from the options pvpool storage and click next to choose the name space you want to migrate. which app 
+and select PV -- select COPY click next next and fill if there are some webhooks else next
+and then click on migrate from 3 dots ti migrate
+to verify on OC4 check using 
+oc get pods -n nameofapp
+
+MIGRATING A MSSQL db form 3-4 
+oc get pods -n mssql-persistent(or whatever name given)
+oc get routes -n mssql-persistent    --- to get the routes 
+go to MTC webconsole and add another plan follow the same steps
+
+
+
+GIT To OC
+
+oc get projects -- check the project wants to go in 
+oc project projectname
+oc get bc   --- check the build config want to explore
+oc edit bc nameofbuild  ---- check the path and go to git and get the clone URL
+make a dir enter the dir 
+git clone -b branchname URL 
